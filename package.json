@@ -1,0 +1,18 @@
+{
+  "name": "file-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "文件分发平台 monorepo - admin 上传/分类/版本管理,客户登录后下载",
+  "scripts": {
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "dev": "bash scripts/dev.sh",
+    "dev:server": "pnpm --filter server dev",
+    "dev:web": "pnpm --filter web dev",
+    "seed": "pnpm --filter server seed",
+    "dev:stop": "pkill -f 'tsx watch' 2>/dev/null; pkill -f 'node.*vite' 2>/dev/null; true"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
