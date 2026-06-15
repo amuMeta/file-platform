@@ -10,3 +10,7 @@ data/
 .vite/
 .cache/
 coverage/
+
+# 源码内的 .js 都是 .ts 编译产物(误产物),不提交
+packages/server/src/**/*.js
+packages/server/dist/scripts/

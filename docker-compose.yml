@@ -1,0 +1,41 @@
+# docker-compose.yml - file-platform
+# 数据持久化策略:bind mount ./data,与现有 dev 共用同一份 inode,迁移零成本
+
+services:
+  node:
+    build: .
+    image: file-platform:local
+    container_name: fp-node
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # ★ 关键:bind mount 而非 named volume,与主机 ./data 是同一份 inode
+      - ./data:/app/data
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - fp-net
+    # 不暴露 ports,只通过 fp-net 让 nginx 反代
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: fp-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # - "443:443"   # 启用 HTTPS 时取消注释并挂证书
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./packages/web/dist:/app/web-dist:ro
+      - ./data:/app/data:ro                       # 只读挂载同一份 data
+      - /etc/localtime:/etc/localtime:ro
+      # - ./ssl:/etc/nginx/ssl:ro                 # 启用 HTTPS 时挂证书目录
+    networks:
+      - fp-net
+    depends_on:
+      node:
+        condition: service_healthy                # 等 node healthy 再起 nginx
+
+networks:
+  fp-net:
+    driver: bridge

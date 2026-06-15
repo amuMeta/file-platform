@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'login', component: () => import('@/views/client/Login.vue'), meta: { guest: true } },
@@ -38,7 +39,6 @@ const router = createRouter({
 export default router;
 
 export async function setupRouterGuards(): Promise<void> {
-  const { useAuthStore } = await import('@/stores/auth');
   const auth = useAuthStore();
   if (!auth.ready) await auth.refresh();
   router.beforeEach((to) => {

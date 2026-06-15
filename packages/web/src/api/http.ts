@@ -1,5 +1,4 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
-import { ElMessage } from 'element-plus';
 
 export interface ApiEnvelope<T = unknown> {
   code: number;
@@ -15,7 +14,11 @@ export const http = axios.create({
   timeout: 30_000,
 });
 
+type ToastKind = 'error' | 'success';
+type ToastHandler = (kind: ToastKind, message: string) => void;
+
 let onUnauthorized: (() => void) | null = null;
+let onToast: ToastHandler | null = null;
 
 function statusTextOrDefault(status: number | undefined, err: AxiosError): string {
   if (status === 502 || status === 504) return '后端服务不可达,请检查 server 是否在运行';
@@ -32,6 +35,21 @@ export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn;
 }
 
+// 关键修复:不要在 http.ts 顶层 import 'element-plus' 的 ElMessage。
+// (Vite prod 会把 element-plus 的 named export 拆到主 bundle,
+//  而主 bundle 正在 `await setupRouterGuards()`,形成循环依赖死锁,白屏)
+// 改成注册式:由 main.ts(ClientLayout 等)在 Element Plus 就绪后回调进来
+export function setToastHandler(fn: ToastHandler): void {
+  onToast = fn;
+}
+
+function toast(kind: ToastKind, message: string): void {
+  if (onToast) onToast(kind, message);
+  // 兜底:任何情况下 console 都有,便于排查
+  if (kind === 'error') console.error('[toast]', message);
+  else console.log('[toast]', message);
+}
+
 http.interceptors.response.use(
   (resp) => {
     const body = resp.data as ApiEnvelope | undefined;
@@ -40,7 +58,7 @@ http.interceptors.response.use(
         return resp;
       }
       const message = body.message || '请求失败';
-      ElMessage.error(message);
+      toast('error', message);
       return Promise.reject(new Error(message));
     }
     return resp;
@@ -49,7 +67,6 @@ http.interceptors.response.use(
     const status = err.response?.status;
     const body: unknown = err.response?.data;
 
-    // 提取 message,优先级:服务端 JSON.message > 纯文本 body > 状态码模板 > err.message
     let message: string;
     if (typeof body === 'object' && body !== null && 'message' in body) {
       const m = (body as { message?: unknown }).message;
@@ -67,7 +84,7 @@ http.interceptors.response.use(
     if (status === 401) {
       if (onUnauthorized) onUnauthorized();
     } else {
-      ElMessage.error(message);
+      toast('error', message);
     }
     return Promise.reject(err);
   }

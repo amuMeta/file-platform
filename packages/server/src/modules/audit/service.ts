@@ -13,7 +13,8 @@ export type AuditAction =
   | 'file.update'
   | 'file.delete'
   | 'user.create'
-  | 'user.update';
+  | 'user.update'
+  | 'user.delete';
 
 export type AuditResource = 'category' | 'file' | 'user' | 'session';
 

@@ -76,7 +76,38 @@ pnpm dev:web           # 前端 Vite dev
 
 ## 生产部署
 
-### 1. 构建产物
+### 0. Docker 部署(推荐)
+
+把 monorepo 整目录放到服务器(或者本地机器)上一份,用 docker-compose 一键起:
+
+```bash
+# 1) 预检 + 备份(把 dev 进程停掉、WAL 收口、data 打包)
+bash scripts/docker-preflight.sh
+
+# 2) 准备 .env
+cp .env.docker.example .env
+bash scripts/gen-secret.sh >> .env   # 追加 SESSION_SECRET
+$EDITOR .env                          # 改 SEED_ADMIN_PASS
+
+# 3) 构建 + 启动
+docker compose build
+docker compose up -d
+
+# 4) 验证
+docker compose ps                     # 两容器都 Up(healthy)
+curl -i http://localhost/                # 200 + 前端 index.html
+curl -i http://localhost/api/healthz     # 200 + {"code":0,"data":{"status":"ok"}}
+# 注意:niginx 转发时去掉 /api/ 前缀,Fastify 实际收到的是 /healthz
+
+# 5) 把公网入口切到 docker(原来是 5180→Vite,现改为 80→nginx 容器)
+bash scripts/docker-cpolar-switch.sh
+```
+
+架构:`nginx` 容器(host:80) + `node` 容器(internal:3000),共享 `fp-net` 内部网络,数据 `./data` 用 bind mount 同时被两容器访问(nginx 只读)。`nginx` 用 X-Accel-Redirect 零拷贝下发大文件,`node` 不暴露端口。
+
+详细设计参见 `docs/docker-deploy.md`(由 preflight / cpolar-switch 脚本的输出回看)。
+
+### 1. 构建产物(裸机部署备选)
 
 ```bash
 pnpm -r build
